@@ -4,7 +4,8 @@ import './App.css';
 import { NavigationType, Route, Router, Routes, useHref, useInRouterContext, useLocation, useMatch, useNavigate, useNavigationType, useOutlet, useParams, useResolvedPath, useRoutes } from 'react-router';
 import HistoryPro, { NavEvent } from 'history-pro'
 import createHistory, { ReactRouterNavigator } from 'history-pro/react'
-import { BrowserRouter } from 'react-router-dom';
+import { BrowserRouter, useSearchParams } from 'react-router-dom';
+import { HistoryProRouter } from './react-router-pro-dom';
 
 const historyPro = new HistoryPro()
 
@@ -33,30 +34,6 @@ function P1() {
     </div>
 }
 
-export function useLinkClickHandler() {
-    console.log(useLocation())
-}
-
-export function useSearchParams() {
-    return createSearchParams(useLocation().search)
-}
-
-function createSearchParams(init: any) {
-    if (init === void 0) {
-        init = "";
-    }
-
-    return new URLSearchParams(typeof init === "string" || Array.isArray(init) || init instanceof URLSearchParams ? init : objectToKeyValueArray(init));
-}
-
-function objectToKeyValueArray(init: { [key: string]: any }) {
-    return Object.keys(init).reduce<Array<any>>((memo, key) => {
-        let value: any = init[key];
-        const r: Array<any> = [...memo, ...(Array.isArray(value) ? value.map(v => [key, v]) : [[key, value]])]
-        return r
-    }, [])
-}
-
 function P2() {
     // useHref, useInRouterContext, useLocation, useMatch, useNavigationType, useNavigate, useOutlet, useOutletContext, useParams, useResolvedPath, useRoutes
     const href = useHref('x')
@@ -78,25 +55,10 @@ function P2() {
 }
 
 function App() {
-    const [location, setLocation] = useState(historyPro.get(0))
-    const [navType, setNavType] = useState(NavigationType.Pop)
-    useEffect(() => {
-        const cancel = historyPro.listen((e: NavEvent) => {
-            setLocation(e.nextLocation)
-            if (e.isPush) setNavType(NavigationType.Push)
-            if (e.isReplace) setNavType(NavigationType.Replace)
-            if (e.isBack || e.isForward || e.isPop) setNavType(NavigationType.Pop)
-        })
-
-        return () => cancel()
-    }, [])
-
     return (
         <div className="App">
-            <Router
-                location={location.path}
-                navigator={reactNavigator}
-                navigationType={navType}
+            <HistoryProRouter
+                history={historyPro}
             >
                 <Routes>
                     <Route path="/" element={<HOME />} />
@@ -108,7 +70,7 @@ function App() {
                         <Route path=":x" element={<P2 />} />
                     </Route>
                 </Routes>
-            </Router>
+            </HistoryProRouter>
         </div>
     )
 }
