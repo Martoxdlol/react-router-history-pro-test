@@ -3,9 +3,7 @@
  * you'll need to update the rollup config for react-router-dom-v5-compat.
  */
 import * as React from "react";
-import { createBrowserHistory, createHashHistory } from "history";
 import {
-    MemoryRouter,
     Navigate,
     Outlet,
     Route,
@@ -76,6 +74,7 @@ export {
     resolvePath,
     useHref,
     useInRouterContext,
+    useHistoryLocation as useNavLocation,
     useLocation,
     useMatch,
     useNavigate,
@@ -143,25 +142,20 @@ export interface HistoryRouterProps {
     history: HistoryPro;
 }
 
-/**
- * A `<Router>` that accepts a pre-instantiated history object. It's important
- * to note that using your own history object is highly discouraged and may add
- * two versions of the history library to your bundles unless you use the same
- * version of the history library that React Router uses internally.
- */
-
-type HistoryProRouterContext = {
+interface HistoryProRouterContext {
     history: HistoryPro
+    location: NavLocation
+    basename?: string
     event?: NavEvent
 }
 
 type HistoryProRouterState = {
-    action: NavigationType,
-    location: NavLocation,
-    event?: NavEvent,
+    action: NavigationType
+    location: NavLocation
+    event?: NavEvent
 }
 
-const Context = React.createContext<HistoryProRouterContext | null>(null);
+const Context = React.createContext<HistoryProRouterContext>({} as HistoryProRouterContext);
 export { Context as historyProRouterContext }
 
 export function HistoryProRouter({ basename, children, history }: HistoryRouterProps) {
@@ -169,13 +163,14 @@ export function HistoryProRouter({ basename, children, history }: HistoryRouterP
     const [state, setState] = React.useState<HistoryProRouterState>({
         action: NavigationType.Pop,
         location: navigator.location,
-    });
+    })
 
     React.useLayoutEffect(() => navigator.listen(setState), [navigator]);
 
     return (
-        <Context.Provider value={{ history, event: state.event, }}>
+        <Context.Provider value={{ history, event: state.event, basename, location: state.location }}>
             <Router
+                key={state.location.key}
                 basename={basename}
                 children={children}
                 location={state.location}
@@ -186,27 +181,91 @@ export function HistoryProRouter({ basename, children, history }: HistoryRouterP
     );
 }
 
+/**
+ * Returns the HistoryPro instance used by the router
+ * it can be used to: push(), pop(), replace(), block(), listen(), and more!
+ */
 export function useHistory() {
     const value = React.useContext(Context)
-    return value?.history
+    return value.history
 }
 
+/**
+ * Returns last navigation event as NavEvent instance
+ */
 export function useHistoryEvent() {
     const value = React.useContext(Context)
-    return value?.event
+    return value.event
 }
 
+export function useHistoryLocation() {
+    const context = React.useContext(Context)
+    return context.location
+}
+
+/**
+ * Used to block navigation.
+ * It can block ⬅➡ keys and, using options, push and pop actions.  
+ * It returns a block() function. Then you use block(blocker_callback)
+ */
 export function useBlock() {
     const history = useHistory()
-    return (blocker: Function, options: BlockOptions) => history?.block(blocker, options)
+    return (blocker: (e: NavEvent, stopBlocking: () => void) => void, options?: BlockOptions): () => void => {
+        const unblock = history?.block(blocker, options)
+        if (unblock) return () => { unblock() }
+        return () => { }
+    }
 }
 
-export function useBlocker(blocker: Function, options: BlockOptions) {
+/**
+ * Used to block navigation.
+ * It can block ⬅➡ keys and, using options, push and pop actions.  
+ * It recives directly the blocker function.
+ * By default, it will automatically unblock if pushed a new location. Also if component removed.
+ * Ej: making appear a modal, you can useBlocker and if modal dissapear it will automatically stop blocking.
+ */
+export function useBlocker(blocker: (e: NavEvent, stopBlocking: () => void) => void, options?: BlockOptions) {
     const history = useHistory()
     React.useEffect(() => {
         const cancel = history?.block(blocker, options)
         return () => cancel!()
     }, [history, blocker])
+}
+
+/**
+ * Listen all history events.
+ * It can be used to cancel event with event.setCancelled(true) 
+ */
+export function useHistoryListener(listener: (e: NavEvent) => void) {
+    const history = useHistory()
+    React.useEffect(() => {
+        const cancel = history?.listen(listener)
+        return () => cancel!()
+    }, [history, listener])
+}
+
+/**
+ * It can be used only one time on a route. (Is the same history every time for each location)
+ * Stores the state on history
+ */
+export function useHistoryState(initial?: any) {
+    const location: NavLocation = useHistoryLocation() as NavLocation
+    console.log(location)
+    const state = location.state ?? initial
+    const [stateState, setStateState] = React.useState(state)
+    function setState(s: any) {
+        location.state = s
+        setStateState(s)
+    }
+    return [stateState, setState]
+}
+
+/**
+ * Returns router basename
+ */
+export function useBasename() {
+    const value = React.useContext(Context)
+    return value.basename
 }
 
 if (__DEV__) {

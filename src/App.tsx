@@ -1,28 +1,35 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import logo from './logo.svg';
 import './App.css';
-import { NavigationType, Route, Router, Routes, useHref, useInRouterContext, useLocation, useMatch, useNavigate, useNavigationType, useOutlet, useParams, useResolvedPath, useRoutes } from 'react-router';
+import { NavigationType, Route, Router, Routes, useHref, useInRouterContext, useMatch, useNavigate, useNavigationType, useOutlet, useParams, useResolvedPath, useRoutes } from 'react-router';
 import HistoryPro, { NavEvent } from 'history-pro'
 import createHistory, { ReactRouterNavigator } from 'history-pro/react'
 import { BrowserRouter, useSearchParams } from 'react-router-dom';
-import { HistoryProRouter } from './react-router-pro-dom';
+import { HistoryProRouter, Link, useBlock, useBlocker, useHistory, useHistoryLocation, useHistoryState, useLocation } from './react-router-pro-dom';
 
-const historyPro = new HistoryPro()
 
 declare global {
     interface Window { historyPro: any; }
 }
 
-window.historyPro = historyPro
+if (!window.historyPro) {
+    window.historyPro = new HistoryPro()
+}
+
+const historyPro = window.historyPro
+
 const reactNavigator: ReactRouterNavigator = createHistory(historyPro)
 
 console.log(reactNavigator)
 
 function HOME() {
     const navigate = useNavigate()
+    const history = useHistory()
     return <div>
         <h1>HOME</h1>
         <button onClick={() => navigate('1')}>Ir a /1</button>
+        <button onClick={() => history.push('/x')}>Ir a /x</button>
+        <p>State: {JSON.stringify(useHistoryState()[0])}</p>
     </div>
 }
 
@@ -31,6 +38,16 @@ function P1() {
     return <div>
         <h1>1</h1>
         <button onClick={() => navigate('/2', { state: { a: 1 }, replace: true })}>Ir a /2</button>
+        <Link to="/s">State X</Link>
+    </div>
+}
+
+function StateX() {
+    const [text, setText] = useHistoryState('')
+    console.log(text)
+    return <div>
+        <input type="text" value={text} onChange={e => setText(e.target.value)} />
+        <Link to="/1">NAVEGAR A 1</Link>
     </div>
 }
 
@@ -40,6 +57,11 @@ function P2() {
     const routerContext = useInRouterContext()
     const location = useLocation()
     const match = useMatch('2')
+
+    const block = useBlock()
+    useBlocker((e, stopBlocking) => {
+        console.log("Blocked ;)", e)
+    })
 
     return <div>
         <p>useHref('x'): {href}</p>
@@ -51,6 +73,15 @@ function P2() {
         <p>useParams(): {JSON.stringify(useParams())}</p>
         <p>useResolvedPath(): {JSON.stringify(useResolvedPath('x'))}</p>
         <p>useSearchParams(): {JSON.stringify(useSearchParams())}</p>
+        <Link to="/x/d">ir a: /x/d</Link>
+        <Link to="/">ir a: /</Link>
+        <a onClick={() => {
+            block((e, stopBlocking) => {
+                console.log(e)
+                alert("Oh, no. You can't escape.")
+
+            }, { blockPushPopAndReplace: true })
+        }}>Block</a>
     </div>
 }
 
@@ -64,6 +95,7 @@ function App() {
                     <Route path="/" element={<HOME />} />
                     <Route path="/1" element={<P1 />} />
                     <Route path="/2" element={<P2 />} />
+                    <Route path="/s" element={<StateX />} />
                     <Route path="/x">
                         <Route index element={<P1 />} />
                         <Route path="1" element={<P1 />} />

@@ -11,7 +11,7 @@
     "@types/react": "^18.0.5",
     "@types/react-dom": "^18.0.1",
     "history-pro": "^0.0.2",
-    "nav-keys": "^1.2.3",
+    "nav-keys": "^1.2.6",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
     "react-router": "^6.3.0",
